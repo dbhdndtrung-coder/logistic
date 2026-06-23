@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOYOTA LOGISTICS & ELECTRONICS RETAIL CHAIN</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Nunito:wght@600;800&display=swap');
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            overflow: hidden;
+            background-color: #1a202c;
+            color: white;
+            user-select: none;
+        }
+
+        h1, h2, h3, .score-text {
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: opacity 0.5s ease;
+        }
+
+        .hidden-screen {
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .active-screen {
+            opacity: 1;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        .team-panel {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        .team-1-bg { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); border-right: 4px solid #fff; }
+        .team-2-bg { background: linear-gradient(135deg, #831843 0%, #ec4899 100%); }
+
+        .cam-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .cam-canvas {
+            width: 100%;
+            max-width: 160px;
+            aspect-ratio: 2 / 3;
+            border-radius: 0.75rem;
+            border: 3px solid rgba(255,255,255,0.3);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+            background-color: #000;
+        }
+
+        .content-layer {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .question-box {
+            background: rgba(255, 255, 255, 0.9);
+            color: #1f2937;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            margin-bottom: 1rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .option-item {
+            background: #f3f4f6;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        
+        .option-item.selected {
+            background: #fcd34d;
+            border-color: #f59e0b;
+            transform: scale(1.02);
+        }
+
+        .finger-icon {
+            background: #374151;
+            color: white;
+            border-radius: 9999px;
+            width: 2rem; height: 2rem;
+            display: flex; align-items: center; justify-content: center;
+            margin-right: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .feedback-overlay {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            font-size: 4rem;
+            font-weight: 900;
+            text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+            pointer-events: none;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .feedback-overlay.show {
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+        }
+
+        .text-correct { color: #4ade80; }
+        .text-wrong { color: #f87171; }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 10px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: auto;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s;
+        }
+
+        #fireworks-canvas {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .countdown-text {
+            font-size: 10rem;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .medal-icon {
+            width: 120px;
+            height: 120px;
+            filter: drop-shadow(0 0 20px gold);
+        }
+
+        .hold-progress {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 5px solid rgba(255,255,255,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.5rem;
+            background: rgba(0,0,0,0.5);
+        }
+        
+        .hold-progress-fill {
+            position: absolute;
+            top: -5px; left: -5px; right: -5px; bottom: -5px;
+            border-radius: 50%;
+            border: 5px solid transparent;
+            border-top-color: #fbbf24;
+            transform: rotate(0deg);
+            transition: transform 0.1s linear;
+        }
+
+        .loader {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 4px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        .loader-small {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #f472b6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+    <!-- START SCREEN -->
+    <div id="screen-start" class="screen active-screen bg-gray-900 justify-center items-center p-4">
+        <div class="max-w-4xl w-full text-center">
+            <h2 class="text-2xl text-blue-400 mb-2 font-bold tracking-widest uppercase">Trò chơi học tập đối kháng</h2>
+            <h1 class="text-4xl md:text-5xl font-black text-white mb-6 leading-tight">
+                TOYOTA LOGISTICS & ELECTRONICS <br>
+                <span class="text-pink-500">LOGISTICS DESIGN</span>
+            </h1>
+
+            <div class="bg-gray-800 p-6 rounded-xl text-left mb-6 border border-gray-700 shadow-xl mx-auto max-w-2xl">
+                <h3 class="text-xl font-bold text-yellow-400 mb-4 border-b border-gray-600 pb-2">📜 HƯỚNG DẪN</h3>
+                <ul class="list-disc pl-5 space-y-2 text-gray-300">
+                    <li>Hệ thống camera sẽ nhận diện tay. Giơ ngón tay để chọn đáp án (Giữ 1 giây để chốt).</li>
+                    <li><span class="text-white font-bold bg-gray-700 px-2 rounded">☝️ 1 ngón = A</span> | <span class="text-white font-bold bg-gray-700 px-2 rounded">✌️ 2 ngón = B</span> | <span class="text-white font-bold bg-gray-700 px-2 rounded">🤟 3 ngón = C</span></li>
+                    <li>Đúng <span class="text-green-400 font-bold">+5 điểm</span>, Sai <span class="text-red-400 font-bold">-2 điểm</span>. Trò chơi kéo dài 3 phút.</li>
+                </ul>
+            </div>
+
+            <!-- CHỌN CHẾ ĐỘ CHƠI -->
+            <div id="start-menu" class="flex flex-col space-y-4 max-w-md mx-auto bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl">
+                <button id="btn-local" class="bg-gradient-to-r from-blue-500 to-pink-500 hover:from-blue-600 hover:to-pink-600 text-white font-black text-xl py-3 px-8 rounded-full shadow-[0_0_15px_rgba(236,72,153,0.5)] transform transition hover:scale-105 flex items-center justify-center space-x-2">
+                    <span>🎮 Chơi 1 Máy (Local)</span>
+                </button>
+                
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-gray-600"></div>
+                    <span class="flex-shrink-0 mx-4 text-gray-400 font-bold text-sm">HOẶC CHƠI ONLINE (2 MÁY)</span>
+                    <div class="flex-grow border-t border-gray-600"></div>
+                </div>
+                
+                <button id="btn-create-room" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg transform transition hover:scale-105 flex items-center justify-center">
+                    🌐 Tạo Phòng Mới (Làm Host)
+                </button>
+                
+                <div class="flex space-x-2">
+                    <input type="text" id="input-room-code" placeholder="Mã phòng (4 số)" maxlength="4" class="flex-1 px-4 py-2 text-black font-bold text-center text-lg rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500" />
+                    <button id="btn-join-room" class="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-6 rounded-lg transition">
+                        Vào Phòng
+                    </button>
+                </div>
+                <div id="room-msg" class="text-yellow-400 font-bold text-sm h-5 text-center mt-2"></div>
+            </div>
+
+            <!-- CHỜ ONLINE -->
+            <div id="waiting-room" class="hidden flex-col items-center mt-8">
+                <h3 class="text-2xl text-gray-300 mb-2">Mã phòng của bạn:</h3>
+                <div id="room-code-display" class="text-7xl font-black text-yellow-400 mb-4 tracking-widest drop-shadow-[0_0_15px_rgba(250,204,21,0.5)]"></div>
+                <div class="flex items-center space-x-3 text-pink-400">
+                    <div class="loader-small"></div>
+                    <p class="animate-pulse font-bold" id="waiting-status">Đang chờ đối thủ vào phòng...</p>
+                </div>
+            </div>
+
+            <div id="loading-cam" class="hidden mt-6 flex flex-col items-center">
+                <div class="loader mb-2"></div>
+                <p class="text-gray-400">Đang khởi tạo Camera & AI Nhận diện...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- COUNTDOWN SCREEN -->
+    <div id="screen-countdown" class="screen hidden-screen bg-gray-900 justify-center items-center">
+        <div id="countdown-number" class="countdown-text font-black text-white">3</div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="screen-game" class="screen hidden-screen flex-col">
+        <!-- Header -->
+        <div class="bg-gray-900 h-16 flex items-center justify-between px-8 border-b border-gray-800 z-20 shadow-md">
+            <div class="text-blue-400 font-black text-xl tracking-wider">TEAM 1 (HOST)</div>
+            <div class="flex items-center space-x-4">
+                <div class="bg-gray-800 px-6 py-2 rounded-full text-2xl font-black shadow-inner flex items-center space-x-2">
+                    <span>⏱️</span>
+                    <span id="global-timer" class="text-yellow-400 w-16 text-center">03:00</span>
+                </div>
+            </div>
+            <div class="text-pink-400 font-black text-xl tracking-wider">TEAM 2 (GUEST)</div>
+        </div>
+
+        <!-- Split Game Area -->
+        <div class="flex-1 flex flex-row relative">
+            <video id="input-video" class="hidden" autoplay playsinline></video>
+
+            <!-- TEAM 1 (Left) -->
+            <div class="team-panel team-1-bg" id="t1-panel">
+                <div class="content-layer">
+                    <div class="flex justify-between items-center mb-4 bg-black/30 p-3 rounded-lg backdrop-blur-sm">
+                        <div class="text-3xl font-black text-white">Điểm: <span id="t1-score" class="text-yellow-300">0</span></div>
+                        <div class="text-lg font-bold">Câu: <span id="t1-qnum">1</span>/14</div>
+                    </div>
+                    
+                    <div class="cam-container">
+                        <canvas id="canvas-cam-left" class="cam-canvas"></canvas>
+                    </div>
+
+                    <div class="hold-progress" id="t1-hold-ui" style="display: none;">
+                        <span id="t1-hold-val">?</span>
+                        <div class="hold-progress-fill" id="t1-hold-fill"></div>
+                    </div>
+
+                    <div id="t1-game-content" class="flex-1 flex flex-col">
+                        <div class="question-box">
+                            <h2 id="t1-question-text" class="text-2xl font-black mb-4 text-center">Đang tải câu hỏi...</h2>
+                            <div id="t1-options" class="flex flex-col space-y-2"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="t1-completed" class="hidden flex-1 flex flex-col justify-center items-center bg-black/50 rounded-xl">
+                        <div class="text-6xl mb-4">🎉</div>
+                        <h2 class="text-3xl font-black text-green-400">ĐÃ HOÀN THÀNH!</h2>
+                        <p class="text-lg mt-2">Đang chờ đối thủ...</p>
+                    </div>
+
+                    <div class="progress-bar-container mt-2">
+                        <div id="t1-progress" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="t1-feedback" class="feedback-overlay"></div>
+            </div>
+
+            <!-- TEAM 2 (Right) -->
+            <div class="team-panel team-2-bg" id="t2-panel">
+                <div class="content-layer">
+                    <div class="flex justify-between items-center mb-4 bg-black/30 p-3 rounded-lg backdrop-blur-sm">
+                        <div class="text-3xl font-black text-white">Điểm: <span id="t2-score" class="text-yellow-300">0</span></div>
+                        <div class="text-lg font-bold">Câu: <span id="t2-qnum">1</span>/14</div>
+                    </div>
+
+                    <div class="cam-container">
+                        <canvas id="canvas-cam-right" class="cam-canvas"></canvas>
+                    </div>
+
+                    <div class="hold-progress" id="t2-hold-ui" style="display: none;">
+                        <span id="t2-hold-val">?</span>
+                        <div class="hold-progress-fill" id="t2-hold-fill"></div>
+                    </div>
+
+                    <div id="t2-game-content" class="flex-1 flex flex-col">
+                        <div class="question-box">
+                            <h2 id="t2-question-text" class="text-2xl font-black mb-4 text-center">Đang tải câu hỏi...</h2>
+                            <div id="t2-options" class="flex flex-col space-y-2"></div>
+                        </div>
+                    </div>
+
+                    <div id="t2-completed" class="hidden flex-1 flex flex-col justify-center items-center bg-black/50 rounded-xl">
+                        <div class="text-6xl mb-4">🎉</div>
+                        <h2 class="text-3xl font-black text-green-400">ĐÃ HOÀN THÀNH!</h2>
+                        <p class="text-lg mt-2">Đang chờ đối thủ...</p>
+                    </div>
+
+                    <div class="progress-bar-container mt-2">
+                        <div id="t2-progress" class="progress-bar" style="width: 0%; background-color: #f472b6;"></div>
+                    </div>
+                </div>
+                <div id="t2-feedback" class="feedback-overlay"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- END SCREEN -->
+    <div id="screen-end" class="screen hidden-screen bg-gray-900 justify-center items-center z-40">
+        <div class="bg-gray-800 p-10 rounded-3xl shadow-2xl border border-gray-700 text-center max-w-3xl w-full mx-4 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
+            
+            <h1 class="text-5xl font-black mb-2 text-yellow-400 uppercase tracking-widest">KẾT THÚC</h1>
+            <p class="text-gray-400 mb-8 text-xl">Tổng kết điểm số</p>
+            
+            <div class="flex justify-around items-end mb-10">
+                <div class="flex flex-col items-center w-1/3" id="end-t1-container">
+                    <div id="medal-t1" class="hidden mb-4 animate-bounce">
+                        <svg class="medal-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 15C15.866 15 19 11.866 19 8C19 4.13401 15.866 1 12 1C8.13401 1 5 4.13401 5 8C5 11.866 8.13401 15 12 15Z" fill="#FBBF24"/>
+                            <path d="M8.25 14.5L5.5 23L12 19.5L18.5 23L15.75 14.5" fill="#F59E0B"/>
+                            <text x="12" y="9" font-family="Arial" font-size="5" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">1ST</text>
+                        </svg>
+                        <div class="text-yellow-400 font-bold text-xl mt-2">VÔ ĐỊCH</div>
+                    </div>
+                    <div class="text-blue-400 font-black text-2xl mb-2">TEAM 1</div>
+                    <div class="text-6xl font-black bg-gray-900 px-6 py-3 rounded-xl border-2 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.5)]" id="end-score-t1">0</div>
+                </div>
+
+                <div class="text-4xl font-black text-gray-500 pb-6 w-1/3 text-center">VS</div>
+
+                <div class="flex flex-col items-center w-1/3" id="end-t2-container">
+                    <div id="medal-t2" class="hidden mb-4 animate-bounce">
+                        <svg class="medal-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 15C15.866 15 19 11.866 19 8C19 4.13401 15.866 1 12 1C8.13401 1 5 4.13401 5 8C5 11.866 8.13401 15 12 15Z" fill="#FBBF24"/>
+                            <path d="M8.25 14.5L5.5 23L12 19.5L18.5 23L15.75 14.5" fill="#F59E0B"/>
+                            <text x="12" y="9" font-family="Arial" font-size="5" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">1ST</text>
+                        </svg>
+                        <div class="text-yellow-400 font-bold text-xl mt-2">VÔ ĐỊCH</div>
+                    </div>
+                    <div class="text-pink-400 font-black text-2xl mb-2">TEAM 2</div>
+                    <div class="text-6xl font-black bg-gray-900 px-6 py-3 rounded-xl border-2 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.5)]" id="end-score-t2">0</div>
+                </div>
+            </div>
+
+            <button onclick="location.reload()" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full transition">Chơi Lại</button>
+        </div>
+    </div>
+
+    <canvas id="fireworks-canvas"></canvas>
+
+    <!-- MAIN SCRIPT (MODULE) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 0. FIREBASE SETUP ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfigStr = typeof __firebase_config !== 'undefined' ? __firebase_config : '{}';
+        
+        let app, auth, db;
+        let currentUser = null;
+        let currentRoomId = null;
+        let isHost = false;
+        let isOnlineMode = false;
+        let roomUnsubscribe = null;
+
+        try {
+            const firebaseConfig = JSON.parse(firebaseConfigStr);
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            const initAuth = async () => {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            };
+            initAuth();
+            onAuthStateChanged(auth, user => { currentUser = user; });
+        } catch(e) {
+            console.error("Firebase init skipped or failed (Local mode fallback):", e);
+        }
+
+        // --- 1. GAME DATA & STATE ---
+        const RAW_QUESTIONS = [
+            { q: "Quản lý chuỗi cung ứng (SCM) tập trung vào điều gì?", opts: ["Giảm thiểu chi phí", "Tối ưu hóa dòng chảy hàng hóa/thông tin", "Chỉ quản lý kho bãi"], ans: 1 },
+            { q: "Trong kho, FIFO có ý nghĩa gì?", opts: ["Nhập trước, Xuất trước", "Nhập sau, Xuất trước", "Hàng lỗi xuất trước"], ans: 0 },
+            { q: "Chuỗi cung ứng lạnh (Cold Chain) thiết yếu cho ngành nào?", opts: ["Điện tử gia dụng", "Quần áo thời trang", "Thực phẩm & Dược phẩm"], ans: 2 },
+            { q: "Phương tiện nào phù hợp nhất để chở lượng lớn container liên lục địa?", opts: ["Máy bay chở hàng", "Tàu biển", "Tàu hỏa"], ans: 1 },
+            { q: "Mã vạch (Barcode) / RFID trong kho dùng chủ yếu để làm gì?", opts: ["Theo dõi & Quản lý tồn kho tự động", "Bảo mật chống trộm cao cấp", "Cân trọng lượng hàng"], ans: 0 },
+            { q: "Khái niệm 'Last mile delivery' chỉ giai đoạn nào?", opts: ["Từ nhà máy đến kho tổng", "Từ kho cuối cùng đến tay khách hàng", "Giao hàng giữa các quốc gia"], ans: 1 },
+            { q: "Pallet tiêu chuẩn trong logistics thường làm bằng gì?", opts: ["Nhựa hoặc Gỗ", "Thép nguyên khối", "Giấy carton mỏng"], ans: 0 },
+            { q: "Hệ thống JIT (Just-In-Time) có mục tiêu cốt lõi là?", opts: ["Tích trữ hàng càng nhiều càng tốt", "Giảm lượng hàng tồn kho xuống mức tối thiểu", "Kéo dài thời gian giao hàng"], ans: 1 },
+            { q: "Trong chuỗi bán lẻ, hệ thống POS là gì?", opts: ["Hệ thống bán điểm (Point of Sale)", "Hệ thống đóng gói", "Dịch vụ bưu điện"], ans: 0 },
+            { q: "Loại thiết bị nâng hạ nào phổ biến trong lối đi hẹp của kho?", opts: ["Xe tải mỏ", "Xe nâng tay / Reach truck", "Cần cẩu tháp"], ans: 1 },
+            { q: "Hệ thống ERP giúp doanh nghiệp điều gì?", opts: ["Chỉ thiết kế website", "Lập kế hoạch & quản lý nguồn lực tổng thể", "Sản xuất phần cứng máy tính"], ans: 1 },
+            { q: "Kho ngoại quan (Bonded Warehouse) dùng để?", opts: ["Lưu trữ hàng hóa chưa nộp thuế nhập khẩu", "Bán lẻ trực tiếp cho người dân", "Lưu trữ hàng phế liệu"], ans: 0 },
+            { q: "Yếu tố nào quan trọng nhất trong E-commerce logistics?", opts: ["Bao bì đẹp", "Tốc độ giao hàng & Xử lý đơn", "Cửa hàng vật lý to"], ans: 1 },
+            { q: "Thuật ngữ 3PL (Third-party logistics) nghĩa là?", opts: ["Nhà cung cấp dịch vụ logistics bên thứ ba", "Mô hình có 3 cấp quản lý", "Chiến lược 3 bước phân phối"], ans: 0 }
+        ];
+
+        const GAME_DURATION = 180;
+        const QUESTIONS_COUNT = 14;
+        const FINGER_EMOJIS = ["☝️", "✌️", "🤟"];
+        
+        let gameState = { status: 'start', timer: GAME_DURATION, timerInterval: null, roomData: null };
+
+        class TeamState {
+            constructor(id) {
+                this.id = id; this.score = 0; this.currentQuestionIdx = 0;
+                this.questions = []; this.isCooldown = false; this.isFinished = false;
+                this.currentFingerCount = 0; this.holdFrames = 0; this.REQUIRED_HOLD_FRAMES = 15;
+                this.lastSyncTimestamp = 0;
+            }
+            initQuestions(sourceArray) { this.questions = [...sourceArray].sort(() => Math.random() - 0.5); }
+        }
+
+        const t1 = new TeamState(1);
+        const t2 = new TeamState(2);
+
+        // --- 2. DOM & AUDIO ---
+        const screens = { start: document.getElementById('screen-start'), countdown: document.getElementById('screen-countdown'), game: document.getElementById('screen-game'), end: document.getElementById('screen-end') };
+        const elTimer = document.getElementById('global-timer');
+        const videoElement = document.getElementById('input-video');
+        const canvasCtxLeft = document.getElementById('canvas-cam-left').getContext('2d');
+        const canvasCtxRight = document.getElementById('canvas-cam-right').getContext('2d');
+        
+        let synthCorrect, synthWrong, bgmSynth, bgmLoop;
+        let audioInitialized = false;
+
+        async function initAudio() {
+            if (audioInitialized) return;
+            await Tone.start();
+            synthCorrect = new Tone.PolySynth(Tone.Synth, { oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.5 } }).toDestination();
+            synthWrong = new Tone.MembraneSynth({ pitchDecay: 0.1, octaves: 2, envelope: { attack: 0.01, decay: 0.3, sustain: 0, release: 0.1 } }).toDestination();
+            bgmSynth = new Tone.FMSynth({ harmonicity: 2, modulationIndex: 3, oscillator: { type: "triangle" }, envelope: { attack: 0.05, decay: 0.2, sustain: 0.2, release: 1 }, modulation: { type: "square" }, modulationEnvelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 0.5 } }).toDestination();
+            bgmSynth.volume.value = -15;
+            const notes = ["C3", "E3", "G3", "C4", "G3", "E3"];
+            let step = 0;
+            bgmLoop = new Tone.Loop((time) => { bgmSynth.triggerAttackRelease(notes[step % notes.length], "8n", time); step++; }, "8n");
+            Tone.Transport.bpm.value = 130;
+            audioInitialized = true;
+        }
+
+        function playSound(type) {
+            if (!audioInitialized) return;
+            if (type === 'correct') synthCorrect.triggerAttackRelease(["C5", "E5", "G5"], "16n");
+            else if (type === 'wrong') synthWrong.triggerAttackRelease("C2", "8n");
+        }
+
+        // --- 3. MENU / MULTIPLAYER LOGIC ---
+        document.getElementById('btn-local').addEventListener('click', async () => {
+            isOnlineMode = false;
+            document.getElementById('start-menu').classList.add('hidden');
+            await initAudio();
+            initMediaPipe();
+        });
+
+        document.getElementById('btn-create-room').addEventListener('click', async () => {
+            if (!currentUser || !db) {
+                document.getElementById('room-msg').innerText = "Đang kết nối hệ thống online, vui lòng đợi..."; return;
+            }
+            await initAudio();
+            document.getElementById('start-menu').classList.add('hidden');
+            document.getElementById('waiting-room').classList.remove('hidden');
+            createRoom();
+        });
+
+        document.getElementById('btn-join-room').addEventListener('click', async () => {
+            if (!currentUser || !db) {
+                document.getElementById('room-msg').innerText = "Lỗi kết nối máy chủ!"; return;
+            }
+            const code = document.getElementById('input-room-code').value.trim();
+            if (code.length < 4) { document.getElementById('room-msg').innerText = "Mã phòng không hợp lệ!"; return; }
+            document.getElementById('room-msg').innerText = "Đang vào phòng...";
+            await initAudio();
+            joinRoom(code);
+        });
+
+        async function createRoom() {
+            const roomId = Math.floor(1000 + Math.random() * 9000).toString();
+            currentRoomId = roomId; isHost = true; isOnlineMode = true; gameState.status = 'waiting_online';
+            document.getElementById('room-code-display').innerText = roomId;
+            
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            const qT1 = [...RAW_QUESTIONS].sort(() => Math.random() - 0.5);
+            const qT2 = [...RAW_QUESTIONS].sort(() => Math.random() - 0.5);
+            
+            try {
+                await setDoc(roomRef, {
+                    hostId: currentUser.uid, guestId: null, status: 'waiting', startTime: null,
+                    t1: { score: 0, idx: 0, finished: false, questions: qT1, lastAnswerCorrect: null, timestamp: 0 },
+                    t2: { score: 0, idx: 0, finished: false, questions: qT2, lastAnswerCorrect: null, timestamp: 0 }
+                });
+                initMediaPipe(); 
+                listenToRoom();
+            } catch (e) {
+                document.getElementById('room-msg').innerText = "Lỗi tạo phòng!"; console.error(e);
+            }
+        }
+
+        async function joinRoom(roomId) {
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId);
+            try {
+                const snap = await getDoc(roomRef);
+                if (!snap.exists()) { document.getElementById('room-msg').innerText = "Phòng không tồn tại!"; return; }
+                const data = snap.data();
+                if (data.status !== 'waiting' || data.guestId) { document.getElementById('room-msg').innerText = "Phòng đã đầy hoặc đang chơi!"; return; }
+                
+                isHost = false; isOnlineMode = true; currentRoomId = roomId; gameState.status = 'waiting_online';
+                await updateDoc(roomRef, { guestId: currentUser.uid });
+                
+                document.getElementById('start-menu').classList.add('hidden');
+                document.getElementById('waiting-room').classList.remove('hidden');
+                document.getElementById('room-code-display').innerText = roomId;
+                document.getElementById('waiting-status').innerText = "Đã vào phòng! Đang chờ bắt đầu...";
+                
+                initMediaPipe();
+                listenToRoom();
+            } catch (e) { document.getElementById('room-msg').innerText = "Lỗi vào phòng!"; console.error(e); }
+        }
+
+        function listenToRoom() {
+            if (!currentUser || !currentRoomId) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+            
+            roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) return;
+                const data = docSnap.data();
+                gameState.roomData = data;
+                
+                if (isHost && data.guestId && data.status === 'waiting') {
+                    updateDoc(roomRef, { status: 'playing', startTime: Date.now() + 3000 });
+                }
+                if (data.status === 'playing' && gameState.status === 'waiting_online') {
+                    startGameOnlineSequence(data.startTime);
+                }
+                if (gameState.status === 'playing') {
+                    syncGameplayState(data);
+                }
+            }, (error) => { console.error(error); });
+        }
+
+        function sendAnswerToFirestore(teamId, isCorrect) {
+            if (!isOnlineMode || !currentRoomId) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+            const teamObj = teamId === 't1' ? t1 : t2;
+            const updateData = {};
+            updateData[teamId] = {
+                score: teamObj.score, idx: teamObj.currentQuestionIdx, finished: teamObj.isFinished,
+                lastAnswerCorrect: isCorrect, timestamp: Date.now()
+            };
+            updateDoc(roomRef, updateData).catch(console.error);
+        }
+
+        function syncGameplayState(data) {
+            if (!isOnlineMode) return;
+            const syncTeam = isHost ? 't2' : 't1';
+            const localObj = isHost ? t2 : t1;
+            const remoteData = data[syncTeam];
+
+            if (remoteData.timestamp > localObj.lastSyncTimestamp) {
+                localObj.score = remoteData.score;
+                localObj.currentQuestionIdx = remoteData.idx;
+                localObj.isFinished = remoteData.finished;
+                localObj.lastSyncTimestamp = remoteData.timestamp;
+                
+                if (remoteData.lastAnswerCorrect !== null) triggerOpponentEffect(syncTeam, remoteData.lastAnswerCorrect);
+                updateOpponentUI(syncTeam, localObj.score, localObj.currentQuestionIdx, localObj.isFinished);
+                updateScores();
+                checkGlobalEndCondition();
+            }
+        }
+
+        // --- 4. CAMERA & MEDIAPIPE ---
+        let handsAI; let camera;
+        async function initMediaPipe() {
+            document.getElementById('loading-cam').classList.remove('hidden');
+            handsAI = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            handsAI.setOptions({ maxNumHands: isOnlineMode ? 2 : 4, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            handsAI.onResults(onHandResults);
+
+            camera = new Camera(videoElement, {
+                onFrame: async () => { await handsAI.send({image: videoElement}); drawCameraFeeds(); },
+                width: 640, height: 480
+            });
+            await camera.start();
+            document.getElementById('loading-cam').classList.add('hidden');
+            
+            if (!isOnlineMode) { setTimeout(startGameSequence, 500); }
+        }
+
+        function drawCameraFeeds() {
+            if (videoElement.videoWidth === 0) return;
+            const w = videoElement.videoWidth; const h = videoElement.videoHeight;
+            const cLeft = document.getElementById('canvas-cam-left');
+            const cRight = document.getElementById('canvas-cam-right');
+            if (cLeft.width !== w/2) { cLeft.width = w/2; cLeft.height = h; cRight.width = w/2; cRight.height = h; }
+
+            if (!isOnlineMode) {
+                // Split local camera
+                canvasCtxLeft.save(); canvasCtxLeft.scale(-1, 1); canvasCtxLeft.translate(-w/2, 0); canvasCtxLeft.drawImage(videoElement, 0, 0, w/2, h, 0, 0, w/2, h); canvasCtxLeft.restore();
+                canvasCtxRight.save(); canvasCtxRight.scale(-1, 1); canvasCtxRight.translate(-w/2, 0); canvasCtxRight.drawImage(videoElement, w/2, 0, w/2, h, 0, 0, w/2, h); canvasCtxRight.restore();
+            } else {
+                // Online: Only show local cam on player's side
+                if (isHost) {
+                    canvasCtxLeft.save(); canvasCtxLeft.scale(-1, 1); canvasCtxLeft.translate(-cLeft.width, 0);
+                    canvasCtxLeft.drawImage(videoElement, 0, 0, w, h, 0, 0, cLeft.width, cLeft.height); canvasCtxLeft.restore();
+                    
+                    canvasCtxRight.fillStyle = '#1f2937'; canvasCtxRight.fillRect(0,0,cRight.width, cRight.height);
+                    canvasCtxRight.fillStyle = '#9ca3af'; canvasCtxRight.font = '20px sans-serif'; canvasCtxRight.textAlign = 'center'; canvasCtxRight.fillText('Đối Thủ', cRight.width/2, cRight.height/2);
+                } else {
+                    canvasCtxRight.save(); canvasCtxRight.scale(-1, 1); canvasCtxRight.translate(-cRight.width, 0);
+                    canvasCtxRight.drawImage(videoElement, 0, 0, w, h, 0, 0, cRight.width, cRight.height); canvasCtxRight.restore();
+                    
+                    canvasCtxLeft.fillStyle = '#1f2937'; canvasCtxLeft.fillRect(0,0,cLeft.width, cLeft.height);
+                    canvasCtxLeft.fillStyle = '#9ca3af'; canvasCtxLeft.font = '20px sans-serif'; canvasCtxLeft.textAlign = 'center'; canvasCtxLeft.fillText('Đối Thủ', cLeft.width/2, cLeft.height/2);
+                }
+            }
+        }
+
+        function onHandResults(results) {
+            if (gameState.status !== 'playing') return;
+            let detectedGlobal = 0, detectedT1 = 0, detectedT2 = 0;
+
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    let count = 0;
+                    if (landmarks[8].y < landmarks[6].y) count++; if (landmarks[12].y < landmarks[10].y) count++; if (landmarks[16].y < landmarks[14].y) count++;
+                    count = Math.min(count, 3);
+                    
+                    if (!isOnlineMode) {
+                        let sumX = 0; for (const lm of landmarks) sumX += lm.x;
+                        const isLeftTeam = (sumX / landmarks.length) > 0.5; 
+                        if (count > 0) { if (isLeftTeam) detectedT1 = Math.max(detectedT1, count); else detectedT2 = Math.max(detectedT2, count); }
+                    } else {
+                        if (count > 0) detectedGlobal = Math.max(detectedGlobal, count);
+                    }
+                }
+            }
+
+            if (!isOnlineMode) {
+                processTeamInput(t1, detectedT1, 't1'); processTeamInput(t2, detectedT2, 't2');
+            } else {
+                if (isHost) processTeamInput(t1, detectedGlobal, 't1'); else processTeamInput(t2, detectedGlobal, 't2');
+            }
+        }
+
+        function processTeamInput(team, detectedFingers, prefix) {
+            if (team.isCooldown || team.isFinished) {
+                document.getElementById(`${prefix}-hold-ui`).style.display = 'none'; team.currentFingerCount = 0; team.holdFrames = 0; return;
+            }
+            if (detectedFingers > 0) {
+                if (detectedFingers === team.currentFingerCount) team.holdFrames++;
+                else { team.currentFingerCount = detectedFingers; team.holdFrames = 1; }
+            } else { team.currentFingerCount = 0; team.holdFrames = 0; }
+
+            const uiHold = document.getElementById(`${prefix}-hold-ui`); const uiVal = document.getElementById(`${prefix}-hold-val`); const uiFill = document.getElementById(`${prefix}-hold-fill`);
+            if (team.holdFrames > 0) {
+                uiHold.style.display = 'flex'; uiVal.innerText = team.currentFingerCount;
+                const percent = Math.min((team.holdFrames / team.REQUIRED_HOLD_FRAMES) * 100, 100);
+                uiFill.style.transform = `rotate(${percent * 3.6}deg)`;
+                uiFill.style.borderTopColor = percent > 50 ? '#10b981' : '#fbbf24'; uiFill.style.borderRightColor = percent > 25 ? (percent>50?'#10b981':'#fbbf24') : 'transparent';
+                uiFill.style.borderBottomColor = percent > 75 ? '#10b981' : 'transparent'; uiFill.style.borderLeftColor = percent >= 100 ? '#10b981' : 'transparent';
+
+                if (team.holdFrames >= team.REQUIRED_HOLD_FRAMES) {
+                    handleAnswer(team, team.currentFingerCount - 1, prefix);
+                    team.currentFingerCount = 0; team.holdFrames = 0; uiHold.style.display = 'none';
+                }
+            } else { uiHold.style.display = 'none'; }
+        }
+
+        // --- 5. GAME LOGIC ---
+        function switchScreen(screenId) {
+            Object.values(screens).forEach(s => { s.classList.remove('active-screen'); s.classList.add('hidden-screen'); });
+            screens[screenId].classList.remove('hidden-screen'); screens[screenId].classList.add('active-screen');
+        }
+
+        function startGameSequence() {
+            switchScreen('countdown'); gameState.status = 'countdown';
+            let count = 3; const cdText = document.getElementById('countdown-number'); cdText.innerText = count;
+            const cdInterval = setInterval(() => {
+                count--; if (count > 0) cdText.innerText = count; else { clearInterval(cdInterval); startMainGame(); }
+            }, 1000);
+        }
+
+        function startGameOnlineSequence(startTimeMs) {
+            gameState.status = 'countdown'; switchScreen('countdown');
+            t1.questions = gameState.roomData.t1.questions; t2.questions = gameState.roomData.t2.questions;
+            t1.lastSyncTimestamp = gameState.roomData.t1.timestamp; t2.lastSyncTimestamp = gameState.roomData.t2.timestamp;
+            
+            const cdInterval = setInterval(() => {
+                const diffMs = startTimeMs - Date.now();
+                if (diffMs <= 0) { clearInterval(cdInterval); startMainGame(); } 
+                else { document.getElementById('countdown-number').innerText = Math.ceil(diffMs / 1000); }
+            }, 100);
+        }
+
+        function startMainGame() {
+            switchScreen('game'); gameState.status = 'playing';
+            
+            if (!isOnlineMode) { t1.initQuestions(RAW_QUESTIONS); t2.initQuestions(RAW_QUESTIONS); }
+            
+            if (!isOnlineMode) { renderQuestion(t1, 't1'); renderQuestion(t2, 't2'); }
+            else {
+                if (isHost) { renderQuestion(t1, 't1'); updateOpponentUI('t2', t2.score, t2.currentQuestionIdx, t2.isFinished); } 
+                else { renderQuestion(t2, 't2'); updateOpponentUI('t1', t1.score, t1.currentQuestionIdx, t1.isFinished); }
+            }
+            updateScores();
+            Tone.Transport.start(); bgmLoop.start(0);
+            
+            gameState.timerInterval = setInterval(() => {
+                if (isOnlineMode && gameState.roomData) {
+                    const elapsed = Math.floor((Date.now() - gameState.roomData.startTime) / 1000);
+                    gameState.timer = Math.max(0, GAME_DURATION - elapsed);
+                } else { gameState.timer--; }
+                
+                elTimer.innerText = `${Math.floor(gameState.timer/60).toString().padStart(2,'0')}:${(gameState.timer%60).toString().padStart(2,'0')}`;
+                if (gameState.timer <= 30) { elTimer.classList.remove('text-yellow-400'); elTimer.classList.add('text-red-500', 'animate-pulse'); }
+                if (gameState.timer <= 0) endGame();
+            }, 1000);
+        }
+
+        function renderQuestion(team, prefix) {
+            if (team.currentQuestionIdx >= QUESTIONS_COUNT) {
+                team.isFinished = true; document.getElementById(`${prefix}-game-content`).classList.add('hidden'); document.getElementById(`${prefix}-completed`).classList.remove('hidden'); checkGlobalEndCondition(); return;
+            }
+            const qData = team.questions[team.currentQuestionIdx];
+            document.getElementById(`${prefix}-qnum`).innerText = team.currentQuestionIdx + 1;
+            document.getElementById(`${prefix}-question-text`).innerText = qData.q;
+            
+            const optsContainer = document.getElementById(`${prefix}-options`); optsContainer.innerHTML = '';
+            qData.opts.forEach((optText, i) => {
+                const optDiv = document.createElement('div'); optDiv.className = `option-item id-${prefix}-opt-${i}`;
+                optDiv.innerHTML = `<div class="finger-icon">${FINGER_EMOJIS[i]}</div><div class="flex-1 text-lg">${String.fromCharCode(65+i)}. ${optText}</div>`;
+                optsContainer.appendChild(optDiv);
+            });
+            document.getElementById(`${prefix}-progress`).style.width = `${(team.currentQuestionIdx / QUESTIONS_COUNT) * 100}%`;
+        }
+
+        function updateOpponentUI(prefix, score, idx, isFinished) {
+            document.getElementById(`${prefix}-score`).innerText = score;
+            document.getElementById(`${prefix}-qnum`).innerText = Math.min(idx + 1, 14);
+            document.getElementById(`${prefix}-progress`).style.width = `${(idx / QUESTIONS_COUNT) * 100}%`;
+            
+            if (isFinished) {
+                document.getElementById(`${prefix}-game-content`).classList.add('hidden'); document.getElementById(`${prefix}-completed`).classList.remove('hidden');
+            } else {
+                document.getElementById(`${prefix}-question-text`).innerText = `Đang tập trung trả lời câu ${idx + 1}/14...`;
+                document.getElementById(`${prefix}-options`).innerHTML = '';
+            }
+        }
+
+        function triggerOpponentEffect(prefix, isCorrect) {
+            const fbEl = document.getElementById(`${prefix}-feedback`); fbEl.classList.remove('text-correct', 'text-wrong');
+            if (isCorrect) { fbEl.innerHTML = "ĐÚNG RỒI!"; fbEl.classList.add('text-correct'); createMiniFireworks(prefix); } 
+            else { fbEl.innerHTML = "SAI RỒI!"; fbEl.classList.add('text-wrong'); }
+            fbEl.classList.add('show'); setTimeout(() => fbEl.classList.remove('show'), 1500);
+        }
+
+        function handleAnswer(team, selectedIdx, prefix) {
+            team.isCooldown = true; team.currentFingerCount = 0; team.holdFrames = 0;
+            const qData = team.questions[team.currentQuestionIdx]; const isCorrect = selectedIdx === qData.ans;
+
+            const optEl = document.querySelector(`.id-${prefix}-opt-${selectedIdx}`); if(optEl) optEl.classList.add('selected');
+            const fbEl = document.getElementById(`${prefix}-feedback`); fbEl.classList.remove('text-correct', 'text-wrong');
+            
+            if (isCorrect) {
+                team.score += 5; playSound('correct');
+                fbEl.innerHTML = "ĐÚNG RỒI!<br><span style='font-size: 1.5rem; font-weight: normal; color: white;'>Đang chuyển câu...</span>"; fbEl.classList.add('text-correct'); createMiniFireworks(prefix);
+            } else {
+                team.score -= 2; playSound('wrong');
+                fbEl.innerHTML = "SAI RỒI!<br><span style='font-size: 1.5rem; font-weight: normal; color: white;'>Đang chuyển câu...</span>"; fbEl.classList.add('text-wrong');
+                const correctEl = document.querySelector(`.id-${prefix}-opt-${qData.ans}`);
+                if(correctEl) { correctEl.style.borderColor = '#4ade80'; correctEl.style.backgroundColor = '#dcfce7'; }
+            }
+
+            if (isOnlineMode) { team.timestamp = Date.now(); sendAnswerToFirestore(prefix, isCorrect); }
+            updateScores(); fbEl.classList.add('show');
+
+            setTimeout(() => {
+                fbEl.classList.remove('show'); team.currentQuestionIdx++; team.isCooldown = false; renderQuestion(team, prefix);
+            }, 1500);
+        }
+
+        function updateScores() { document.getElementById('t1-score').innerText = t1.score; document.getElementById('t2-score').innerText = t2.score; }
+        function checkGlobalEndCondition() { if (t1.isFinished && t2.isFinished) setTimeout(endGame, 1000); }
+
+        function endGame() {
+            if (gameState.status === 'ended') return;
+            gameState.status = 'ended'; clearInterval(gameState.timerInterval); Tone.Transport.stop(); bgmLoop.stop();
+            if (roomUnsubscribe) roomUnsubscribe();
+            
+            switchScreen('end');
+            document.getElementById('end-score-t1').innerText = t1.score; document.getElementById('end-score-t2').innerText = t2.score;
+
+            if (t1.score > t2.score) { document.getElementById('medal-t1').classList.remove('hidden'); document.getElementById('end-t1-container').classList.add('scale-110', 'transform', 'transition'); } 
+            else if (t2.score > t1.score) { document.getElementById('medal-t2').classList.remove('hidden'); document.getElementById('end-t2-container').classList.add('scale-110', 'transform', 'transition'); } 
+            else { document.getElementById('medal-t1').classList.remove('hidden'); document.getElementById('medal-t2').classList.remove('hidden'); }
+
+            for(let i=0; i<5; i++) setTimeout(() => createFirework(Math.random() * window.innerWidth, Math.random() * (window.innerHeight/2)), i * 400);
+        }
+
+        // --- 6. FIREWORKS ---
+        const fwCanvas = document.getElementById('fireworks-canvas'); const fwCtx = fwCanvas.getContext('2d'); let particles = [];
+        function resizeFwCanvas() { fwCanvas.width = window.innerWidth; fwCanvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeFwCanvas); resizeFwCanvas();
+
+        class Particle {
+            constructor(x, y, color) { this.x = x; this.y = y; this.color = color; const angle = Math.random() * Math.PI * 2; const speed = Math.random() * 5 + 2; this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed; this.alpha = 1; this.decay = Math.random() * 0.02 + 0.015; }
+            update() { this.x += this.vx; this.y += this.vy; this.vy += 0.05; this.alpha -= this.decay; }
+            draw(ctx) { ctx.save(); ctx.globalAlpha = this.alpha; ctx.beginPath(); ctx.arc(this.x, this.y, 3, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill(); ctx.restore(); }
+        }
+        function createFirework(x, y) { const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff']; const color = colors[Math.floor(Math.random() * colors.length)]; for (let i = 0; i < 50; i++) particles.push(new Particle(x, y, color)); }
+        function createMiniFireworks(prefix) { const panel = document.getElementById(`${prefix}-panel`); const rect = panel.getBoundingClientRect(); createFirework(rect.left + rect.width / 2, rect.top + rect.height / 2); }
+        function animateFireworks() { requestAnimationFrame(animateFireworks); fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height); for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.update(); p.draw(fwCtx); if (p.alpha <= 0) particles.splice(i, 1); } }
+        animateFireworks();
+
+    </script>
+</body>
+</html>
